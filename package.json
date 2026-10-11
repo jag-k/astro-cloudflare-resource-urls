@@ -1,0 +1,79 @@
+{
+  "name": "astro-cloudflare-resource-urls",
+  "version": "0.1.0",
+  "description": "Normalize Astro resource URLs for Cloudflare Static Assets without confusing filenames and URL escapes",
+  "type": "module",
+  "license": "MIT",
+  "author": "Jag_k <me@jagk.dev>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jag-k/astro-cloudflare-resource-urls.git"
+  },
+  "homepage": "https://github.com/jag-k/astro-cloudflare-resource-urls#readme",
+  "bugs": {
+    "url": "https://github.com/jag-k/astro-cloudflare-resource-urls/issues"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./url": {
+      "types": "./dist/url.d.ts",
+      "import": "./dist/url.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "bun test tests/",
+    "check": "bun run build && bun run test && bun run lint:check && bun run format:check",
+    "fix": "bun run lint && bun run format",
+    "lint": "eslint --fix src tests",
+    "lint:check": "eslint src tests",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepack": "bun run build"
+  },
+  "dependencies": {
+    "acorn": "^8.19.0",
+    "acorn-walk": "^8.3.5",
+    "css-tree": "^3.2.1",
+    "parse-srcset": "^1.0.2",
+    "parse5": "^8.0.1"
+  },
+  "peerDependencies": {
+    "astro": "^6.0.0 || ^7.0.0"
+  },
+  "peerDependenciesMeta": {
+    "astro": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/css-tree": "^3.2.0",
+    "@types/node": "^24.19.1",
+    "@types/parse-srcset": "^1.0.0",
+    "astro": "7.2.9",
+    "eslint": "^10.12.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.9",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.1"
+  }
+}

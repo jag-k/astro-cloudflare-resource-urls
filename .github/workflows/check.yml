@@ -1,0 +1,87 @@
+name: Check and publish package
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      name: ${{ steps.release.outputs.name }}
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      - run: node --test tests/package.test.mjs
+      - name: Pack the checked build
+        run: bun pm pack --ignore-scripts --filename package.tgz
+      - name: Verify publication contents
+        run: bunx --package npm@12.2.0 npm publish ./package.tgz --dry-run --ignore-scripts
+      - name: Read release metadata
+        id: release
+        run: |
+          bun -e 'const {name, version} = await Bun.file("package.json").json(); console.log("name=" + name); console.log("version=" + version); console.log("tag=" + (version.includes("-") ? "next" : "latest"));' >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: npm-package
+          path: package.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: check
+    if: github.repository == 'jag-k/astro-cloudflare-resource-urls' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+          registry-url: https://registry.npmjs.org
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - uses: actions/download-artifact@v8
+        with:
+          name: npm-package
+      - name: Check whether this version is already published
+        id: registry
+        env:
+          PACKAGE_NAME: ${{ needs.check.outputs.name }}
+          PACKAGE_VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          bun -e '
+            const url = "https://registry.npmjs.org/" + encodeURIComponent(process.env.PACKAGE_NAME) + "/" + encodeURIComponent(process.env.PACKAGE_VERSION);
+            const response = await fetch(url);
+            if (response.status !== 200 && response.status !== 404) throw new Error("npm registry returned " + response.status);
+            console.log("exists=" + (response.status === 200));
+          ' >> "$GITHUB_OUTPUT"
+      - name: Publish to npm with OIDC
+        if: steps.registry.outputs.exists != 'true'
+        env:
+          NPM_DIST_TAG: ${{ needs.check.outputs.tag }}
+        run: bunx --package npm@12.2.0 npm publish ./package.tgz --ignore-scripts --access public --tag "$NPM_DIST_TAG" --registry https://registry.npmjs.org
